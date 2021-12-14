@@ -15,7 +15,9 @@
 #
 
 from maxfw.model import MAXModelWrapper
-
+import tensorflow as tf
+import numpy as np
+import core.utils as utils
 import logging
 from config import DEFAULT_MODEL_PATH
 
@@ -25,28 +27,32 @@ logger = logging.getLogger()
 class ModelWrapper(MAXModelWrapper):
 
     MODEL_META_DATA = {
-        'id': 'ID',
-        'name': 'MODEL NAME',
-        'description': 'DESCRIPTION',
-        'type': 'MODEL TYPE',
-        'source': 'MODEL SOURCE',
-        'license': 'LICENSE'
+        'id': 'None',
+        'name': 'CodeNet Code Complexity Estimator',
+        'description': 'Simple deep neural network to estimate code complexity',
+        'type': 'TensorFlow',
+        'source': 'IBM',
+        'license': 'Apache 2.0'
     }
 
     def __init__(self, path=DEFAULT_MODEL_PATH):
         logger.info('Loading model from: {}...'.format(path))
 
         # Load the graph
+        self.model = tf.keras.models.load_model(path)
 
         # Set up instance variables and required inputs for inference
-
         logger.info('Loaded model')
 
-    def _pre_process(self, inp):
-        return inp
+    def _pre_process(self, code_sample):
+        arw = utils.arw_embedding(code_sample)
+        cp = utils.code_pattern_embedding(code_sample)
+        return np.array(arw+cp).reshape((1, 67))
 
-    def _post_process(self, result):
-        return result
+    def _post_process(self, preds):
+        return (preds[0].argmax(), preds[0].max())
 
-    def _predict(self, x):
-        return x
+    def _predict(self, code_sample):
+        embedding = self._pre_process(code_sample)
+        preds = self.model.predict(embedding)
+        return self._post_process(preds)

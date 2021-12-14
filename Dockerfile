@@ -1,5 +1,5 @@
 #
-# Copyright 2018-2019 IBM Corp. All Rights Reserved.
+# Copyright 2021-2022 IBM Corp. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ FROM quay.io/codait/max-base:v1.4.0
 # ARG model_bucket=
 # ARG model_file=
 
-ARG use_pre_trained_model=true
+ARG use_pre_trained_model=false
 
 RUN if [ "$use_pre_trained_model" = "true" ] ; then\
      # download pre-trained model artifacts from Cloud Object Storage

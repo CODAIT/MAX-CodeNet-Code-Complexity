@@ -1,170 +1,150 @@
-[![Build Status](https://travis-ci.com/IBM/MAX-Skeleton.svg?branch=master)](https://travis-ci.com/IBM/MAX-Skeleton)
+<!-- [![Build Status](https://travis-ci.com/IBM/[MODEL REPO NAME].svg?branch=master)](https://travis-ci.com/IBM/[MODEL REPO NAME]) [![Website Status](https://img.shields.io/website/http/codenet-language-classifier.max.us-south.containers.appdomain.cloud/swagger.json.svg?label=api+demo)](http://codenet-language-classifier.max.us-south.containers.appdomain.cloud/) -->
 
-# Model Asset Exchange Scaffolding
+<!-- [<img src="docs/deploy-max-to-ibm-cloud-with-kubernetes-button.png" width="400px">](http://ibm.biz/max-to-ibm-cloud-tutorial) -->
 
-Docker based deployment skeleton for deep learning models on the Model Asset Exchange.
+# IBM Developer Model Asset Exchange: CodeNet Language Classification
 
-## Prerequisites:
+This repository contains code to instantiate and deploy a Code Language Classification Model.
+The model takes in a file (any format) with a computer program / code in it and outputs the detected programming language along with the probability. 
 
-* You will need Docker installed. Follow the [installation instructions](https://docs.docker.com/install/) for your
-system.
-* Have the model saved in SavedModel format and uploaded to a public [Cloud Object Storage](https://console.bluemix.net/catalog/services/cloud-object-storage) bucket.
+The model is based on a simple CNN architecture with fully connected flat layers. The model files are hosted along with this repository on GitHub
+The code in this repository deploys the model as a web service in a Docker container. This repository was developed
+as part of the [IBM Developer Model Asset Exchange](https://developer.ibm.com/exchanges/models/) and the public API is powered by [IBM Cloud](https://ibm.biz/Bdz2XM).
 
-## Step-by-step Guide to Wrapping a Model
+## Model Metadata
+| Domain | Application | Industry  | Framework | Training Data | Input Data Format |
+| ------------- | --------  | -------- | --------- | --------- | -------------- | 
+| Text Classification | Code Classification | Software | TensorFlow | [Project Codenet](https://developer.ibm.com/exchanges/data/all/project-codenet/) | Various coding language formats |
 
-### 1. Clone the skeleton
-Clone the `MAX-skeleton` repository locally. In a terminal run the following command:
-```bash
-$ git clone https://github.com/IBM/MAX-Skeleton
-```
-The project files are structured into three main parts: model, api, and samples. The `model` directory will contain code used for loading the model and running the predictions. The `api` directory contains code to handle the inputs and outputs of the MAX microservice. The `samples` directory will contain sample data and notebooks for the user to try the service.
+## References
 
-Example:
-```
-./
-  app.py
-  model/
-    model.py
-  api/
-    metadata.py
-    predict.py
-```
 
-### 2. Modify the Dockerfile
-In the [`Dockerfile`](Dockerfile) we need to modify the following `ARG` instructions with a link to the
-public object storage bucket and the name of the file containing the serialized model.
+* [Project CodeNet Dataset page](https://developer.ibm.com/exchanges/data/all/project-codenet/)
+* [Project CodeNet GitHub repo](https://github.com/IBM/Project_CodeNet)
 
-    ARG model_bucket=
-    ARG model_file=
+## Licenses
 
-Then, calculate and add the SHA512 hashes of the files that will be downloaded to `sha512sums.txt`. Note: the hashes should be
-of the files after any extraction (eg after un-taring or un-ziping).
+| Component | License | Link  |
+| ------------- | --------  | -------- |
+| This repository | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [LICENSE](LICENSE) |
+| Model Weights | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [LICENSE](LICENSE) |
+| Model Code (3rd party) | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) | [LICENSE](LICENSE) |
+| Test samples | [CDLA-Permissive 2.0](https://cdla.io) | [samples README](samples/README.md) |
 
-To calculate the SHA512 sum of a file run:
-```bash
-$ sha512sum <FILE NAME>
-```
+## Pre-requisites:
 
-### 3. Import the model in `core/model.py`
+* `docker`: The [Docker](https://www.docker.com/) command-line interface. Follow the [installation instructions](https://docs.docker.com/install/) for your system.
+* The minimum recommended resources for this model is [SET NECESSARY GB] Memory and [SET NECESSARY CPUs] CPUs.
+* If you are on x86-64/AMD64, your CPU must support [AVX](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions) at the minimum. [Remove this item if it's not TensorFlow-based.]
 
-This is where we handle the framework specific code for running predictions. The model is
-loaded in the `ModelWrapper.__init__()` method. Any code that needs to run when
-the model is loaded is also placed here.
+# Deployment options
 
-There are also separate functions for pre-processing, predictions, and post-processing that need to be implemented. The  `MAXModelWrapper` base class has a default `predict` method that internally calls these pre-processing, prediction, and post-processing functions.
-The model metadata should also be defined here.
+* [Deploy from Quay](#deploy-from-quay)
+* [Deploy on Red Hat OpenShift](#deploy-on-red-hat-openshift)
+* [Deploy on Kubernetes](#deploy-on-kubernetes)
+* [Run Locally](#run-locally)
 
-```python
-class ModelWrapper(MAXModelWrapper):
-
-    MODEL_META_DATA = {
-        'id': 'ID',
-        'name': 'MODEL NAME',
-        'description': 'DESCRIPTION',
-        'type': 'MODEL TYPE',
-        'source': 'MODEL SOURCE'
-        'license': 'LICENSE'
-    }
-
-    def __init__(self, path=DEFAULT_MODEL_PATH):
-        pass
-
-    def _pre_process(self, inp):
-        return inp
-
-    def _post_process(self, result):
-        return result
-
-    def _predict(self, x):
-        return x
-```
-
-### 4. Add input/output parsing code in `api/predict.py`
-
-The input and outputs requests are sent as JSON strings. We define the format of these requests using the `flask_restplus` package. In the skeleton we have the output response configured with the following schema:
-
-```json
-{
-    "predictions": [
-        {
-            "probability": "float",
-            "label": "string",
-            "label_id": "string"
-        },
-    ],
-    "status": "string"
-}
-```
-The `predict_response` and `label_prediction` variables can be modified to amend the schema for each model's specific response format.
-
-To define the input format for a prediction we use Flask-RESTPlus's request parsing interface. The default input takes in a file.
-
-### 5. Create MAXApp instance in `app.py`
-
-The following code is already in the skeleton, but you may need to manually add extra APIs if needed.
-```python
-from maxfw.core import MAXApp
-from api import ModelMetadataAPI, ModelPredictAPI
-from config import API_TITLE, API_DESC, API_VERSION
-
-max = MAXApp(API_TITLE, API_DESC, API_VERSION)
-max.add_api(ModelMetadataAPI, '/metadata')
-max.add_api(ModelPredictAPI, '/predict')
-max.run()
-```
-
-### 6. Add integration tests
-
-Add a few integration tests using `pytest` in `tests/test.py` to check that your model works. To enable Travis CI
-testing uncomment the `docker` commands and `pytest` command in `.travis.yml`.
-
-### 7. Add requirements
-
-Add required python packages to `requirements.txt`
-
-## Testing Out the Model with Docker
-
-### 1. Build the model Docker image
-
-To build the docker image locally, run:
-
-```bash
-$ docker build -t max-model .
-```
-
-If you want to print debugging messages make sure to set `DEBUG=True` in `config.py`.
-
-### 2. Run the model server
+## Deploy from Quay
 
 To run the docker image, which automatically starts the model serving API, run:
 
-```bash
-$ docker run -it -p 5000:5000 max-model
+```
+$ docker run -it -p 5000:5000 quay.io/codait/codenet-language-classifier
 ```
 
-### 3. Test the API
+This will pull a pre-built image from the Quay.io container registry (or use an existing image if already cached locally) and run it.
+If you'd rather checkout and build the model locally you can follow the [run locally](#run-locally) steps below.
+
+## Deploy on Red Hat OpenShift
+
+You can deploy the model-serving microservice on Red Hat OpenShift by following the instructions for the OpenShift web console or the OpenShift Container Platform CLI [in this tutorial](https://developer.ibm.com/tutorials/deploy-a-model-asset-exchange-microservice-on-red-hat-openshift/), specifying `quay.io/codait/codenet-language-classifier` as the image name.
+
+## Deploy on Kubernetes
+
+You can also deploy the model on Kubernetes using the latest docker image on Quay.
+
+On your Kubernetes cluster, run the following commands:
+
+```
+$ kubectl apply -f https://github.com/CODAIT/MAX-CodeNet-Language-Classification/raw/main/codenet-language-classifier.yaml
+```
+
+The model will be available internally at port `5000`, but can also be accessed externally through the `NodePort`.
+
+A more elaborate tutorial on how to deploy this MAX model to production on [IBM Cloud](https://ibm.biz/Bdz2XM) can be found [here](http://ibm.biz/max-to-ibm-cloud-tutorial).
+
+## Run Locally
+
+1. [Build the Model](#1-build-the-model)
+2. [Deploy the Model](#2-deploy-the-model)
+3. [Use the Model](#3-use-the-model)
+4. [Development](#4-development)
+5. [Cleanup](#5-cleanup)
+
+
+### 1. Build the Model
+
+Clone this repository locally. In a terminal, run the following command:
+
+```
+$ git clone https://github.com/CODAIT/MAX-CodeNet-Language-Classification.git
+```
+
+Change directory into the repository base folder:
+
+```
+$ cd MAX-CodeNet-Language-Classification
+```
+
+To build the docker image locally, run: 
+
+```
+$ docker build -t codenet-language-classifier .
+```
+
+All required model assets will be downloaded during the build process. _Note_ that currently this docker image is CPU only (we will add support for GPU images later).
+
+
+### 2. Deploy the Model
+
+To run the docker image, which automatically starts the model serving API, run:
+
+```
+$ docker run -it -p 5000:5000 codenet-language-classifier
+```
+
+### 3. Use the Model
 
 The API server automatically generates an interactive Swagger documentation page. Go to `http://localhost:5000` to load it. From there you can explore the API and also create test requests.
 
-Use the `model/predict` endpoint to load a test file and get a response from the API.
+Use the `model/predict` endpoint to load a test file (you can use one of the test files from the `samples` folder) and get predicted language and probabilites from the API.
 
-```bash
-$ curl -F "file=@<INPUT_FILE_PATH>" -XPOST http://localhost:5000/model/predict
+![INSERT SWAGGER UI SCREENSHOT HERE](docs/swagger-screenshot.png)
+
+You can also test it on the command line, for example:
+
+```
+$ curl -X POST "http://localhost:5000/model/predict" -H  "accept: application/json" -H  "Content-Type: multipart/form-data" -F "file=@s034703969.c;type="
 ```
 
-### 4. Run the Test Cases
+You should see a JSON response like that below:
 
-Install test required packages and run tests using `pytest`:
-
-```bash
-$ pip install -r requirements-test.txt
-$ pytest tests/test.py
+```json
+{
+  "status": "ok",
+  "predictions": [
+    {
+      "language": "C",
+      "probability": 0.9999332427978516
+    }
+  ]
+}
 ```
 
-## Provide documentation
+### 4. Development
 
-Copy the README files and add the relevant details for the specific model and use case, following the MAX standard. See other MAX models (e.g. [Object Detector](https://github.com/IBM/MAX-Object-Detector)) for examples. 
+To run the Flask API app in debug mode, edit `config.py` to set `DEBUG = True` under the application settings. You will then need to rebuild the docker image (see [step 1](#1-build-the-model)).
 
-More specifically, update the following README files:
-- Replace this `README.md` file with the completed `README-template.md` file
-- Complete the `samples/README.md` file with information about the data samples and the demo notebook, if any
+### 5. Cleanup
+
+To stop the Docker container, type `CTRL` + `C` in your terminal.

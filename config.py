@@ -22,10 +22,10 @@ RESTPLUS_MASK_SWAGGER = False
 SWAGGER_UI_DOC_EXPANSION = 'none'
 
 # API metadata
-API_TITLE = 'MAX'
-API_DESC = 'An API for serving models'
+API_TITLE = 'CodeNet Code Complexity Estimator'
+API_DESC = 'An API for a simple deep neural network to estimate code complexity'
 API_VERSION = '0.1'
 
 # default model
-MODEL_NAME = ''
+MODEL_NAME = 'code_complexity.h5'
 DEFAULT_MODEL_PATH = 'assets/{}'.format(MODEL_NAME)
